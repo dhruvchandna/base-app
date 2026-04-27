@@ -1,0 +1,26 @@
+{
+  "name": "@base-app/auth",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@base-app/eslint-config": "workspace:*",
+    "@base-app/typescript-config": "workspace:*",
+    "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "@base-app/db": "workspace:*",
+    "better-auth": "^1.2.0"
+  }
+}

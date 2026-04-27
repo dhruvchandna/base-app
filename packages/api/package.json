@@ -1,0 +1,29 @@
+{
+  "name": "@base-app/api",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./trpc": "./src/trpc.ts"
+  },
+  "scripts": {
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@base-app/eslint-config": "workspace:*",
+    "@base-app/typescript-config": "workspace:*",
+    "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "@base-app/auth": "workspace:*",
+    "@base-app/db": "workspace:*",
+    "@trpc/server": "^11.0.0",
+    "superjson": "^2.2.0",
+    "zod": "^3.24.0"
+  }
+}
