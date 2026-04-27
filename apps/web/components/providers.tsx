@@ -25,10 +25,8 @@ function getQueryClient() {
   return browserQueryClient
 }
 
-function getBaseUrl() {
-  if (typeof window !== 'undefined') return ''
-  if (process.env['NEXT_PUBLIC_APP_URL']) return process.env['NEXT_PUBLIC_APP_URL']
-  return 'http://localhost:3000'
+function getApiUrl() {
+  return process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001'
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -37,8 +35,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     trpc.createClient({
       links: [
         httpBatchLink({
-          url: `${getBaseUrl()}/api/trpc`,
+          url: `${getApiUrl()}/api/trpc`,
           transformer: superjson,
+          fetch: (url, options) => fetch(url, { ...options, credentials: 'include' }),
         }),
       ],
     }),

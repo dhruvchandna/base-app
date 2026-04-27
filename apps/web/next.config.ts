@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['@base-app/ui', '@base-app/api', '@base-app/auth', '@base-app/db'],
+  transpilePackages: ['@base-app/ui', '@base-app/api'],
   experimental: {
     typedRoutes: true,
   },

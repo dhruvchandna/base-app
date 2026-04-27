@@ -4,13 +4,37 @@ This monorepo is the canonical starting point for new web applications. Clone it
 
 ---
 
+## Deployment Architecture
+
+Client and server are **independently deployable**:
+
+```
+Browser ──────────────────────────────────► apps/web  (Next.js — Vercel / Cloudflare Pages)
+                                                │
+                                                │ HTTP (API_URL)
+                                                ▼
+Next.js RSC ──────────────────────────────► apps/server  (Hono — Fly.io / Railway / Docker)
+                                                │
+                                    ┌───────────┼───────────┐
+                                    ▼           ▼           ▼
+                               packages/api  packages/auth  packages/db
+                               (tRPC router) (Better Auth) (Drizzle + Postgres)
+```
+
+- **`apps/web`** — pure frontend. No DB access, no auth secrets. Only needs `API_URL` to reach the server.
+- **`apps/server`** — Hono API server. Owns all DB access, auth, and business logic. Exposes `/api/trpc` and `/api/auth`.
+- **`packages/*`** — shared library code consumed by whichever app needs it.
+
+---
+
 ## Stack
 
 | Layer | Tool | Version |
 |---|---|---|
 | Monorepo | Turborepo + pnpm workspaces | turbo ^2, pnpm ^9 |
 | Frontend | Next.js (App Router) | ^15 |
-| API | tRPC | ^11 |
+| API server | Hono | ^4 |
+| API protocol | tRPC | ^11 |
 | Styling | Tailwind CSS | ^4 |
 | Components | shadcn/ui (Radix UI primitives) | own the code |
 | Database | Drizzle ORM + PostgreSQL | ^0.38 |
@@ -27,16 +51,21 @@ This monorepo is the canonical starting point for new web applications. Clone it
 ```
 base-app/
 ├── apps/
-│   └── web/                        # Next.js 15 application
-│       ├── app/                    # App Router: layouts, pages, route handlers
-│       ├── components/             # App-specific React components
-│       ├── lib/
-│       │   ├── env.ts              # Type-safe env vars (t3-env)
-│       │   ├── store.ts            # Zustand global state
-│       │   └── trpc/
-│       │       ├── client.ts       # tRPC React client
-│       │       └── server.ts       # tRPC server caller (RSC use)
-│       └── tests/                  # Vitest unit/integration tests
+│   ├── web/                        # Next.js 15 — frontend only
+│   │   ├── app/                    # App Router: layouts and pages (no API routes)
+│   │   ├── components/             # App-specific React components
+│   │   ├── lib/
+│   │   │   ├── env.ts              # Type-safe env vars (t3-env)
+│   │   │   ├── store.ts            # Zustand global state
+│   │   │   └── trpc/
+│   │   │       ├── client.ts       # tRPC React client → calls apps/server over HTTP
+│   │   │       └── server.ts       # tRPC HTTP client for RSC (forwards cookies)
+│   │   └── tests/                  # Vitest unit/integration tests
+│   │
+│   └── server/                     # Hono API server — independently deployable
+│       └── src/
+│           ├── index.ts            # Hono app: tRPC + auth routes + CORS + health check
+│           └── context.ts          # tRPC context (resolves session from cookies)
 │
 ├── packages/
 │   ├── ui/                         # Shared design system
@@ -52,8 +81,8 @@ base-app/
 │   │
 │   ├── auth/                       # Auth configuration
 │   │   └── src/
-│   │       ├── index.ts            # Server auth instance
-│   │       └── client.ts           # Browser auth client
+│   │       ├── index.ts            # Server auth instance (used by apps/server only)
+│   │       └── client.ts           # Browser auth client (used by apps/web)
 │   │
 │   ├── api/                        # tRPC routers
 │   │   └── src/
@@ -88,24 +117,36 @@ base-app/
 # 1. Install dependencies
 pnpm install
 
-# 2. Start local services
+# 2. Start local services (Postgres + Redis)
 docker compose up -d
 
-# 3. Copy and fill env file
-cp .env.example apps/web/.env.local
-# Edit apps/web/.env.local — at minimum set DATABASE_URL and BETTER_AUTH_SECRET
+# 3. Set up server env
+cp apps/server/.env.example apps/server/.env.local
+# Edit apps/server/.env.local — set DATABASE_URL and BETTER_AUTH_SECRET at minimum
 
-# 4. Push schema to database (first time) or run migrations
+# 4. Set up web env
+cp apps/web/.env.example apps/web/.env.local
+# Default values point to localhost:3001 (the API server) — no changes needed for local dev
+
+# 5. Push schema to database
 pnpm db:push
 
-# 5. Start dev server
+# 6. Start all services (web on :3000, API server on :3001)
 pnpm dev
 ```
+
+### Local ports
+
+| Service | URL |
+|---|---|
+| Web (Next.js) | http://localhost:3000 |
+| API server (Hono) | http://localhost:3001 |
+| API health check | http://localhost:3001/health |
 
 ### Common commands
 
 ```bash
-pnpm dev              # Start all apps in watch mode (Turborepo)
+pnpm dev              # Start all apps in watch mode (Turborepo — web + server)
 pnpm build            # Production build
 pnpm lint             # Run ESLint across all packages
 pnpm lint:fix         # Auto-fix lint errors
@@ -250,6 +291,8 @@ export const appRouter = createTRPCRouter({
 
 ### Calling from a Server Component (RSC)
 
+`lib/trpc/server.ts` is a plain HTTP tRPC client that forwards the incoming request's cookies so the API server can resolve the session. It calls `apps/server` over the network.
+
 ```ts
 import { api } from '@/lib/trpc/server'
 
@@ -260,6 +303,8 @@ export default async function Page() {
 ```
 
 ### Calling from a Client Component
+
+The browser client calls `apps/server` directly using `NEXT_PUBLIC_API_URL`. Cookies are sent automatically via `credentials: 'include'`.
 
 ```ts
 'use client'
@@ -272,6 +317,7 @@ export function PostList() {
 ```
 
 ### Rules
+- Routers live in `packages/api` and run inside `apps/server` — never import them into `apps/web` for execution.
 - Use `publicProcedure` for unauthenticated routes; `protectedProcedure` for anything requiring a session.
 - Validate all inputs with Zod. Never trust unvalidated input.
 - Routers are feature-scoped — one file per domain (posts, users, billing, etc.).

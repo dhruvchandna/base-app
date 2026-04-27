@@ -3,27 +3,19 @@ import { z } from 'zod'
 
 export const env = createEnv({
   server: {
-    DATABASE_URL: z.string().url(),
-    BETTER_AUTH_SECRET: z.string().min(32),
-    BETTER_AUTH_URL: z.string().url().default('http://localhost:3000'),
-    GITHUB_CLIENT_ID: z.string().optional(),
-    GITHUB_CLIENT_SECRET: z.string().optional(),
-    GOOGLE_CLIENT_ID: z.string().optional(),
-    GOOGLE_CLIENT_SECRET: z.string().optional(),
+    // Internal URL the Next.js server uses to reach the API (can be a private network address)
+    API_URL: z.string().url().default('http://localhost:3001'),
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   },
   client: {
+    // Public URL browsers use to reach the API
+    NEXT_PUBLIC_API_URL: z.string().url().default('http://localhost:3001'),
     NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
   },
   runtimeEnv: {
-    DATABASE_URL: process.env['DATABASE_URL'],
-    BETTER_AUTH_SECRET: process.env['BETTER_AUTH_SECRET'],
-    BETTER_AUTH_URL: process.env['BETTER_AUTH_URL'],
-    GITHUB_CLIENT_ID: process.env['GITHUB_CLIENT_ID'],
-    GITHUB_CLIENT_SECRET: process.env['GITHUB_CLIENT_SECRET'],
-    GOOGLE_CLIENT_ID: process.env['GOOGLE_CLIENT_ID'],
-    GOOGLE_CLIENT_SECRET: process.env['GOOGLE_CLIENT_SECRET'],
+    API_URL: process.env['API_URL'],
     NODE_ENV: process.env['NODE_ENV'],
+    NEXT_PUBLIC_API_URL: process.env['NEXT_PUBLIC_API_URL'],
     NEXT_PUBLIC_APP_URL: process.env['NEXT_PUBLIC_APP_URL'],
   },
   skipValidation: !!process.env['SKIP_ENV_VALIDATION'],
